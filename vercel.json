@@ -1,0 +1,14 @@
+{
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  },
+  "functions": {
+    "api/**.ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "buildCommand": "npm install && npm run build",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD"
+}
