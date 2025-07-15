@@ -1,14 +1,21 @@
 {
+  "version": 2,
   "build": {
     "env": {
       "NODE_ENV": "production"
     }
   },
-  "functions": {
-    "api/**.ts": {
-      "runtime": "nodejs18.x"
+  "builds": [
+    {
+      "src": "apps/next/package.json",
+      "use": "@vercel/next"
     }
-  },
-  "buildCommand": "npm install && npm run build",
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "apps/next/$1"
+    }
+  ],
   "ignoreCommand": "git diff --quiet HEAD^ HEAD"
 }
