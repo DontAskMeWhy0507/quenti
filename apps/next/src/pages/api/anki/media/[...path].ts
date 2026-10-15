@@ -38,7 +38,10 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const mimeType = MIME_TYPES[ext] || "application/octet-stream";
 
   // Check possible locations in public/uploads/anki/
-  const baseUploadsDir = path.resolve(process.cwd(), "apps/next/public/uploads/anki");
+  const cwd = process.cwd();
+  const baseUploadsDir = fs.existsSync(path.resolve(cwd, "public/uploads/anki"))
+    ? path.resolve(cwd, "public/uploads/anki")
+    : path.resolve(cwd, "apps/next/public/uploads/anki");
   const relativeJoined = pathSegments.map((s) => path.basename(s)).join(path.sep);
   const pathOption1 = path.join(baseUploadsDir, relativeJoined);
   const pathOption2 = path.join(baseUploadsDir, filename);

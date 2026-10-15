@@ -13,7 +13,10 @@ import { fileURLToPath } from "url";
 import "@quenti/env/client/client.mjs";
 import "@quenti/env/server/server.mjs";
 
-import pjson from "./package.json" assert { type: "json" };
+import fs from "fs";
+const pjson = JSON.parse(
+  fs.readFileSync(new URL("./package.json", import.meta.url), "utf-8")
+);
 
 const shouldAnalyzeBundles = process.env.ANALYZE === "true";
 const withBundleAnalyzer = (await import("@next/bundle-analyzer")).default({

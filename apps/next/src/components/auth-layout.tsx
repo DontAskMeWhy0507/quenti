@@ -201,6 +201,20 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
                         >
                           Sign {verb} with Google
                         </Button>
+                        <Button
+                          w="full"
+                          size="lg"
+                          fontSize="sm"
+                          colorScheme="purple"
+                          variant="solid"
+                          onClick={() => {
+                            window.location.href = `/api/auth/dev-login?callbackUrl=${encodeURIComponent(
+                              safeCallbackUrl
+                            )}`;
+                          }}
+                        >
+                          ⚡ Đăng nhập nhanh (Quick Dev Login)
+                        </Button>
                         <Box>
                           <Stack
                             my={expanded ? 4 : 0}
