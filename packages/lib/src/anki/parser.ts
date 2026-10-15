@@ -162,8 +162,9 @@ export async function parseAnkiPackage(
     const rawData: RawExtractedCollection = JSON.parse(fs.readFileSync(tempJsonPath, "utf-8"));
 
     const deckMap = new Map<string, ParsedDeck>();
-    for (const [did, dname] of Object.entries(rawData.decks)) {
-      // Determine parent name if :: or naming convention
+    for (const [did, rawDname] of Object.entries(rawData.decks)) {
+      // Normalize \x1f or :: into clean hierarchy
+      const dname = rawDname.replace(/\x1f/g, "::");
       let parentName: string | undefined = undefined;
       if (dname.includes("::")) {
         const parts = dname.split("::");
