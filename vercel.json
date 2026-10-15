@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  },
+  "builds": [
+    {
+      "src": "apps/next/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "apps/next/$1"
+    }
+  ],
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD"
+}
