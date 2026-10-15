@@ -47,9 +47,7 @@ export const ImportFromAnkiModal: React.FC<ImportFromAnkiModalProps> = ({
       effectChannel.emit("confetti");
 
       onClose();
-      if (data.folderId) {
-        await router.push(`/folder/${data.folderId}`);
-      } else if (data.createdSetId) {
+      if (data.createdSetId) {
         await router.push(`/${data.createdSetId}`);
       }
     },

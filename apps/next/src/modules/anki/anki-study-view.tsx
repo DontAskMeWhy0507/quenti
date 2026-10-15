@@ -98,6 +98,8 @@ export const AnkiStudyView: React.FC<AnkiStudyViewProps> = ({ studySetId }) => {
         e.preventDefault();
         if (!isAnswerShown) {
           handleShowAnswer();
+        } else if (!submitReviewMutation.isLoading) {
+          handleRate(3); // Default to Good rating, matching Anki ergonomics
         }
       } else if (isAnswerShown && !submitReviewMutation.isLoading) {
         if (e.key === "1") handleRate(1);
