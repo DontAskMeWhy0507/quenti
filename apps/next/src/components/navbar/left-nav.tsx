@@ -39,12 +39,14 @@ import { UnboundOnly } from "../unbound-only";
 export interface LeftNavProps {
   onFolderClick: () => void;
   onImportClick: () => void;
+  onAnkiImportClick?: () => void;
   onClassClick: () => void;
 }
 
 export const LeftNav: React.FC<LeftNavProps> = ({
   onFolderClick,
   onImportClick,
+  onAnkiImportClick,
   onClassClick,
 }) => {
   const { data: session, status } = useSession()!;
@@ -155,6 +157,11 @@ export const LeftNav: React.FC<LeftNavProps> = ({
                 icon={<IconCloudDownload size={20} />}
                 label="Import from Quizlet"
                 onClick={onImportClick}
+              />
+              <MenuOption
+                icon={<IconCloudDownload size={20} />}
+                label="Import from Anki (.apkg)"
+                onClick={onAnkiImportClick}
               />
               <MenuDivider />
               <MenuOption

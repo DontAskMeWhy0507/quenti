@@ -31,6 +31,10 @@ const ImportFromQuizletModal = dynamic(
   () => import("./import-from-quizlet-modal"),
   { ssr: false },
 );
+const ImportFromAnkiModal = dynamic(
+  () => import("./import-from-anki-modal"),
+  { ssr: false },
+);
 const CreateFolderModal = dynamic(() => import("./create-folder-modal"), {
   ssr: false,
 });
@@ -48,6 +52,7 @@ export const Navbar: React.FC = () => {
   const [folderChildSetId, setFolderChildSetId] = React.useState<string>();
   const [importIsEdit, setImportIsEdit] = React.useState(false);
   const [importModalOpen, setImportModalOpen] = React.useState(false);
+  const [ankiImportModalOpen, setAnkiImportModalOpen] = React.useState(false);
 
   React.useEffect(() => {
     const createFolder = (setId?: string) => {
@@ -58,16 +63,21 @@ export const Navbar: React.FC = () => {
       setImportIsEdit(edit);
       setImportModalOpen(true);
     };
+    const openAnkiImportDialog = () => {
+      setAnkiImportModalOpen(true);
+    };
     const createClass = () => {
       onClassClick();
     };
 
     menuEventChannel.on("createFolder", createFolder);
     menuEventChannel.on("openImportDialog", openImportDialog);
+    menuEventChannel.on("openAnkiImportDialog", openAnkiImportDialog);
     menuEventChannel.on("createClass", createClass);
     return () => {
       menuEventChannel.off("createFolder", createFolder);
       menuEventChannel.off("openImportDialog", openImportDialog);
+      menuEventChannel.off("openAnkiImportDialog", openAnkiImportDialog);
       menuEventChannel.off("createClass", createClass);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -96,6 +106,12 @@ export const Navbar: React.FC = () => {
         }}
         edit={importIsEdit}
       />
+      <ImportFromAnkiModal
+        isOpen={ankiImportModalOpen}
+        onClose={() => {
+          setAnkiImportModalOpen(false);
+        }}
+      />
       <Flex pos="relative" zIndex={1000} w="full" h="20">
         <HStack
           as="header"
@@ -111,6 +127,9 @@ export const Navbar: React.FC = () => {
             onImportClick={() => {
               setImportIsEdit(false);
               setImportModalOpen(true);
+            }}
+            onAnkiImportClick={() => {
+              setAnkiImportModalOpen(true);
             }}
             onClassClick={onClassClick}
           />

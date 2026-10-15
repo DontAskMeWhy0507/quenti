@@ -24,7 +24,8 @@
     "generate-org-students": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/generate-org-students.ts",
     "generate-assignment-submissions": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/generate-assignment-submissions.ts",
     "join-class-students": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/join-class-students.ts",
-    "stripe-webhook": "stripe listen --forward-to localhost:3000/api/stripe/webhook"
+    "stripe-webhook": "stripe listen --forward-to localhost:3000/api/stripe/webhook",
+    "anki:import": "bun run scripts/import-anki.ts"
   },
   "dependencies": {
     "@prisma/client": "5.5.2",
@@ -33,6 +34,8 @@
     "eslint-config-turbo": "^1.11.1",
     "eslint-plugin-prettier": "^5.0.1",
     "eslint-plugin-unused-imports": "^3.0.0",
+    "fzstd": "^0.1.1",
+    "jszip": "^3.10.2",
     "turbo": "latest"
   },
   "devDependencies": {
