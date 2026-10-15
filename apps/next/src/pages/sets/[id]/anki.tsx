@@ -6,7 +6,6 @@ import { PageWrapper } from "../../../common/page-wrapper";
 import { AuthedPage } from "../../../components/authed-page";
 import { getLayout } from "../../../layouts/main-layout";
 import { AnkiStudyView } from "../../../modules/anki/anki-study-view";
-import { HydrateSetData } from "../../../modules/hydrate-set-data";
 
 const AnkiPage = () => {
   const router = useRouter();
@@ -16,15 +15,13 @@ const AnkiPage = () => {
   return (
     <AuthedPage>
       <HeadSeo title="Anki Spaced Repetition" />
-      <HydrateSetData
-        placeholder={
-          <Container py={20} textAlign="center">
-            <Spinner size="xl" color="orange.400" />
-          </Container>
-        }
-      >
-        {studySetId ? <AnkiStudyView studySetId={studySetId} /> : null}
-      </HydrateSetData>
+      {studySetId ? (
+        <AnkiStudyView studySetId={studySetId} />
+      ) : (
+        <Container py={20} textAlign="center">
+          <Spinner size="xl" color="orange.400" />
+        </Container>
+      )}
     </AuthedPage>
   );
 };

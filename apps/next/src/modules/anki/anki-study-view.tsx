@@ -34,22 +34,18 @@ export const AnkiStudyView: React.FC<AnkiStudyViewProps> = ({ studySetId }) => {
   const queueQuery = api.anki.getReviewQueue.useQuery(
     { studySetId },
     {
-      refetchOnWindowFocus: true,
-      refetchInterval: (data) => (!data || data.cards.length === 0 ? 10000 : false),
+      refetchOnWindowFocus: false,
+      staleTime: 60000,
     }
   );
 
   useEffect(() => {
-    if (queueQuery.data?.cards) {
+    if (queueQuery.data?.cards && sessionCards.length === 0) {
       setSessionCards(queueQuery.data.cards);
     }
-  }, [queueQuery.data?.cards]);
+  }, [queueQuery.data?.cards, sessionCards.length]);
 
   const submitReviewMutation = api.anki.submitReview.useMutation({
-    onSuccess: () => {
-      // Invalidate review queue so other windows/devices stay synced
-      void utils.anki.getReviewQueue.invalidate({ studySetId });
-    },
     onError: (err) => {
       console.error("Failed to submit review:", err);
     },
@@ -65,8 +61,10 @@ export const AnkiStudyView: React.FC<AnkiStudyViewProps> = ({ studySetId }) => {
 
   const handleRate = useCallback(
     (rating: 1 | 2 | 3 | 4) => {
-      if (!currentCard || submitReviewMutation.isLoading) return;
+      if (!currentCard) return;
       const ratedCard = currentCard;
+
+      // Fire mutation in the background (optimistic UI)
       submitReviewMutation.mutate({
         studySetId,
         termId: ratedCard.termId,
@@ -163,6 +161,7 @@ export const AnkiStudyView: React.FC<AnkiStudyViewProps> = ({ studySetId }) => {
               leftIcon={<IconRefresh size={18} />}
               onClick={() => {
                 setCurrentIndex(0);
+                setSessionCards([]);
                 setIsAnswerShown(false);
                 void utils.anki.getReviewQueue.invalidate({ studySetId });
               }}

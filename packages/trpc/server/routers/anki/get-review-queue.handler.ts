@@ -19,33 +19,27 @@ export const getReviewQueueHandler = async ({
   const userId = ctx.session.user.id;
   const now = new Date();
 
-  const studySet = await ctx.prisma.studySet.findUnique({
-    where: { id: input.studySetId },
-    select: {
-      id: true,
-      title: true,
-      terms: {
-        where: { ephemeral: false },
-        orderBy: { rank: "asc" },
-        select: {
-          id: true,
-          word: true,
-          definition: true,
-          assetUrl: true,
-          rank: true,
-        },
-      },
-    },
+  // Step 1: Lightweight fetch of term IDs and ranks only
+  const terms = await ctx.prisma.term.findMany({
+    where: { studySetId: input.studySetId, ephemeral: false },
+    orderBy: { rank: "asc" },
+    select: { id: true, rank: true },
   });
 
-  if (!studySet) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Study set not found",
+  if (terms.length === 0) {
+    const studySet = await ctx.prisma.studySet.findUnique({
+      where: { id: input.studySetId },
+      select: { id: true },
     });
+    if (!studySet) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Study set not found",
+      });
+    }
   }
 
-  // Fetch existing schedules for this user in this set
+  // Step 2: Fetch existing schedules for this user in this set
   const existingSchedules = await ctx.prisma.ankiCardSchedule.findMany({
     where: {
       userId,
@@ -58,26 +52,79 @@ export const getReviewQueueHandler = async ({
     scheduleMap.set(s.termId, s);
   }
 
-  const allCards = studySet.terms.map((term) => {
+  type LightweightCard = {
+    termId: string;
+    rank: number;
+    queue: AnkiQueue;
+    step: number;
+    interval: number;
+    easeFactor: number;
+    reps: number;
+    lapses: number;
+    due: Date;
+    lastReviewedAt: Date | null;
+  };
+
+  const learnDue: LightweightCard[] = [];
+  const reviewDue: LightweightCard[] = [];
+  const newCards: LightweightCard[] = [];
+
+  for (const term of terms) {
     const s = scheduleMap.get(term.id);
     const queue = (s?.queue ?? "New") as AnkiQueue;
-    const step = s?.step ?? 0;
-    const interval = s?.interval ?? 0;
-    const easeFactor = s?.easeFactor ?? 2500;
-    const reps = s?.reps ?? 0;
-    const lapses = s?.lapses ?? 0;
     const due = s?.due ?? now;
-    const lastReviewedAt = s?.lastReviewedAt ?? null;
 
-    const state: CardScheduleState = {
+    const item: LightweightCard = {
+      termId: term.id,
+      rank: term.rank,
       queue,
-      step,
-      interval,
-      easeFactor,
-      reps,
-      lapses,
+      step: s?.step ?? 0,
+      interval: s?.interval ?? 0,
+      easeFactor: s?.easeFactor ?? 2500,
+      reps: s?.reps ?? 0,
+      lapses: s?.lapses ?? 0,
       due,
-      lastReviewedAt,
+      lastReviewedAt: s?.lastReviewedAt ?? null,
+    };
+
+    if ((queue === "Learning" || queue === "DayLearn") && due <= now) {
+      learnDue.push(item);
+    } else if (queue === "Review" && due <= now) {
+      reviewDue.push(item);
+    } else if (queue === "New") {
+      newCards.push(item);
+    }
+  }
+
+  // Step 3: Pick only the top N cards for the active queue
+  const targetCards = [...learnDue, ...reviewDue, ...newCards].slice(0, input.limit);
+  const targetTermIds = targetCards.map((c) => c.termId);
+
+  // Step 4: Fetch HTML definitions ONLY for the target cards (at most input.limit)
+  const fullTerms = targetTermIds.length > 0
+    ? await ctx.prisma.term.findMany({
+        where: { id: { in: targetTermIds } },
+        select: {
+          id: true,
+          word: true,
+          definition: true,
+          assetUrl: true,
+        },
+      })
+    : [];
+  const termDetailsMap = new Map(fullTerms.map((t) => [t.id, t]));
+
+  const queueCards = targetCards.map((c) => {
+    const details = termDetailsMap.get(c.termId);
+    const state: CardScheduleState = {
+      queue: c.queue,
+      step: c.step,
+      interval: c.interval,
+      easeFactor: c.easeFactor,
+      reps: c.reps,
+      lapses: c.lapses,
+      due: c.due,
+      lastReviewedAt: c.lastReviewedAt,
     };
 
     const estimates = {
@@ -88,33 +135,21 @@ export const getReviewQueueHandler = async ({
     };
 
     return {
-      termId: term.id,
-      word: term.word,
-      definition: term.definition,
-      assetUrl: term.assetUrl,
-      rank: term.rank,
-      queue,
-      step,
-      interval,
-      easeFactor,
-      reps,
-      lapses,
-      due,
+      termId: c.termId,
+      word: details?.word ?? "",
+      definition: details?.definition ?? "",
+      assetUrl: details?.assetUrl ?? null,
+      rank: c.rank,
+      queue: c.queue,
+      step: c.step,
+      interval: c.interval,
+      easeFactor: c.easeFactor,
+      reps: c.reps,
+      lapses: c.lapses,
+      due: c.due,
       estimates,
     };
   });
-
-  // Partition into learning due, review due, and new cards
-  const learnDue = allCards.filter(
-    (c) => (c.queue === "Learning" || c.queue === "DayLearn") && c.due <= now
-  );
-  const reviewDue = allCards.filter(
-    (c) => c.queue === "Review" && c.due <= now
-  );
-  const newCards = allCards.filter((c) => c.queue === "New");
-
-  // Review queue priority: learn due first, review due second, new cards third
-  const queueCards = [...learnDue, ...reviewDue, ...newCards].slice(0, input.limit);
 
   return {
     cards: queueCards,

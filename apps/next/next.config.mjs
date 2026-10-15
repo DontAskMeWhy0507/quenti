@@ -170,6 +170,10 @@ let config = {
       destination: "/sets/:id/anki",
     },
     {
+      source: "/api/anki/media/:path*",
+      destination: "/uploads/anki/:path*",
+    },
+    {
       source: "/a/:id/:assignmentId",
       destination: "/classes/:id/assignments/:assignmentId",
     },
