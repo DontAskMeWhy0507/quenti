@@ -32,7 +32,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   // Sanitized filename (last segment is the actual file)
-  const filename = path.basename(pathSegments[pathSegments.length - 1]);
+  const lastSegment = pathSegments[pathSegments.length - 1] ?? "";
+  const filename = path.basename(lastSegment);
   const ext = path.extname(filename).toLowerCase();
   const mimeType = MIME_TYPES[ext] || "application/octet-stream";
 

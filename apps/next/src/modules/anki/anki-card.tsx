@@ -26,7 +26,7 @@ export const AnkiCard: React.FC<AnkiCardProps> = ({
     const regex = /data-src=["']([^"']+\.(?:mp3|wav|ogg|m4a))["']/gi;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(frontHtml)) !== null) {
-      matches.push(match[1]);
+      if (match[1]) matches.push(match[1]);
     }
     return matches;
   }, [frontHtml]);
@@ -36,7 +36,7 @@ export const AnkiCard: React.FC<AnkiCardProps> = ({
     const regex = /data-src=["']([^"']+\.(?:mp3|wav|ogg|m4a))["']/gi;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(backHtml)) !== null) {
-      matches.push(match[1]);
+      if (match[1]) matches.push(match[1]);
     }
     return matches;
   }, [backHtml]);

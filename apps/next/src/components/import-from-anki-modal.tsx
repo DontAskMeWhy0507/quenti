@@ -89,7 +89,7 @@ export const ImportFromAnkiModal: React.FC<ImportFromAnkiModalProps> = ({
     try {
       const reader = new FileReader();
       reader.onload = async () => {
-        const base64 = (reader.result as string).split(",")[1];
+        const base64 = (reader.result as string).split(",")[1] ?? "";
         setProgressMsg("Parsing decks, cards, and media...");
         importMutation.mutate({
           fileBase64: base64,

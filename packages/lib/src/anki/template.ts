@@ -18,9 +18,11 @@ export function extractClozeOrdinals(text: string): number[] {
   const regex = /\{\{c(\d+)::/g;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
-    const num = parseInt(match[1], 10);
-    if (!isNaN(num)) {
-      ordinals.add(num);
+    if (match[1]) {
+      const num = parseInt(match[1], 10);
+      if (!isNaN(num)) {
+        ordinals.add(num);
+      }
     }
   }
   return Array.from(ordinals).sort((a, b) => a - b);

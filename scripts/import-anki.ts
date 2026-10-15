@@ -111,7 +111,7 @@ async function main() {
     // Determine Folder for hierarchy
     let folderId: string | undefined = undefined;
     const sample = parsed.decks[0];
-    const rootName = sample?.parentName || (parsed.decks.length > 1 ? sample?.name.split(" ")[0] : undefined);
+    const rootName = sample?.parentName || (parsed.decks.length > 1 && sample ? sample.name.split(" ")[0] : undefined);
 
     if (parsed.decks.length > 1 && rootName) {
       const folder = await prisma.folder.create({

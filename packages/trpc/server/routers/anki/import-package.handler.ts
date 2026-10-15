@@ -42,7 +42,7 @@ export const importPackageHandler = async ({
   // Determine if there is a common parent deck or hierarchy
   let folderId: string | undefined = undefined;
   const sampleDeck = parsed.decks[0];
-  const rootName = sampleDeck.parentName || (parsed.decks.length > 1 ? sampleDeck.name.split(" ")[0] : undefined);
+  const rootName = sampleDeck?.parentName || (parsed.decks.length > 1 && sampleDeck ? sampleDeck.name.split(" ")[0] : undefined);
 
   if (parsed.decks.length > 1 && rootName) {
     const folder = await ctx.prisma.folder.create({

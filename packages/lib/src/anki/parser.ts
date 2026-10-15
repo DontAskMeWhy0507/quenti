@@ -46,6 +46,7 @@ export function decodeProtobufMedia(bytes: Uint8Array): Record<string, string> {
     let shift = 0;
     while (pos < bytes.length) {
       const b = bytes[pos++];
+      if (b === undefined) break;
       result |= (b & 0x7f) << shift;
       if ((b & 0x80) === 0) break;
       shift += 7;

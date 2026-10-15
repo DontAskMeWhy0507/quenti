@@ -3,6 +3,7 @@ import { eventBus } from "../lib/event-bus";
 export const menuEventChannel = eventBus<{
   createFolder: (setId?: string) => void;
   openImportDialog: (edit?: boolean) => void;
+  openAnkiImportDialog: () => void;
   folderWithSetCreated: (setId: string) => void;
   openChangelog: () => void;
   openCreateClassNotice: () => void;

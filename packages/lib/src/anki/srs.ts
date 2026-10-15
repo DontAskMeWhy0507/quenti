@@ -76,7 +76,7 @@ export function calculateNextSchedule(
       case 3: { // Good
         const nextStep = current.step + 1;
         if (nextStep < config.learningStepsMinutes.length) {
-          const minutes = config.learningStepsMinutes[nextStep];
+          const minutes = config.learningStepsMinutes[nextStep] ?? 10;
           return {
             queue: "Learning",
             step: nextStep,
