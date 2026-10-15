@@ -20,6 +20,7 @@ import {
   IconLayersSubtract,
   IconLock,
   IconMeteor,
+  IconRepeat,
   IconReport,
 } from "@tabler/icons-react";
 
@@ -37,6 +38,12 @@ export const LinkArea = () => {
       h="max-content"
       columns={{ base: 2, md: 3, lg: 1 }}
     >
+      <Linkable
+        name="Anki SRS"
+        icon={<IconRepeat />}
+        href={`/${id}/anki`}
+        requireAuth
+      />
       <Linkable
         name="Learn"
         icon={<IconBrain />}

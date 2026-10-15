@@ -163,6 +163,10 @@ let config = {
       destination: "/sets/:id/test",
     },
     {
+      source: "/:id(c[a-z0-9]{24})/anki",
+      destination: "/sets/:id/anki",
+    },
+    {
       source: "/a/:id/:assignmentId",
       destination: "/classes/:id/assignments/:assignmentId",
     },
