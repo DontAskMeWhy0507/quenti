@@ -6,12 +6,14 @@ export interface AnkiCardProps {
   frontHtml: string;
   backHtml: string;
   isAnswerShown: boolean;
+  onFlip?: () => void;
 }
 
 export const AnkiCard: React.FC<AnkiCardProps> = ({
   frontHtml,
   backHtml,
   isAnswerShown,
+  onFlip,
 }) => {
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -53,6 +55,9 @@ export const AnkiCard: React.FC<AnkiCardProps> = ({
       justifyContent="center"
       position="relative"
       p={{ base: 4, md: 8 }}
+      onClick={!isAnswerShown ? onFlip : undefined}
+      cursor={!isAnswerShown && onFlip ? "pointer" : "default"}
+      userSelect={!isAnswerShown ? "none" : "text"}
       sx={{
         ".anki-cloze": {
           bg: clozeBg,

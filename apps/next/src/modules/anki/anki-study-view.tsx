@@ -33,7 +33,10 @@ export const AnkiStudyView: React.FC<AnkiStudyViewProps> = ({ studySetId }) => {
   const utils = api.useContext();
   const queueQuery = api.anki.getReviewQueue.useQuery(
     { studySetId },
-    { refetchOnWindowFocus: false }
+    {
+      refetchOnWindowFocus: true,
+      refetchInterval: (data) => (!data || data.cards.length === 0 ? 10000 : false),
+    }
   );
 
   useEffect(() => {
@@ -43,6 +46,10 @@ export const AnkiStudyView: React.FC<AnkiStudyViewProps> = ({ studySetId }) => {
   }, [queueQuery.data?.cards]);
 
   const submitReviewMutation = api.anki.submitReview.useMutation({
+    onSuccess: () => {
+      // Invalidate review queue so other windows/devices stay synced
+      void utils.anki.getReviewQueue.invalidate({ studySetId });
+    },
     onError: (err) => {
       console.error("Failed to submit review:", err);
     },
@@ -118,6 +125,28 @@ export const AnkiStudyView: React.FC<AnkiStudyViewProps> = ({ studySetId }) => {
     );
   }
 
+  if (queueQuery.isError) {
+    return (
+      <Container maxW="2xl" py={20} textAlign="center">
+        <Stack spacing={4} align="center">
+          <Heading size="md" color="red.400">
+            Error Loading Review Queue
+          </Heading>
+          <Text color={secondaryText}>
+            {queueQuery.error.message || "Failed to load study cards."}
+          </Text>
+          <Button
+            leftIcon={<IconRefresh size={18} />}
+            colorScheme="orange"
+            onClick={() => void queueQuery.refetch()}
+          >
+            Retry
+          </Button>
+        </Stack>
+      </Container>
+    );
+  }
+
   if (isFinished) {
     return (
       <Container maxW="2xl" py={20} textAlign="center">
@@ -184,6 +213,7 @@ export const AnkiStudyView: React.FC<AnkiStudyViewProps> = ({ studySetId }) => {
             frontHtml={currentCard.word}
             backHtml={currentCard.definition}
             isAnswerShown={isAnswerShown}
+            onFlip={handleShowAnswer}
           />
         )}
 
