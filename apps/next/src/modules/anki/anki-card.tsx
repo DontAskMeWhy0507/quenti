@@ -1,6 +1,6 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import { Box, Card, CardBody, Divider, Stack, useColorModeValue } from "@chakra-ui/react";
-import { AnkiAudioPlayer } from "./anki-audio-player";
+import { AnkiAudioPlayer, stopAllAnkiAudio } from "./anki-audio-player";
 
 export interface AnkiCardProps {
   frontHtml: string;
@@ -20,26 +20,38 @@ export const AnkiCard: React.FC<AnkiCardProps> = ({
   const clozeBg = useColorModeValue("orange.100", "orange.900");
   const clozeColor = useColorModeValue("orange.800", "orange.200");
 
-  // Extract any audio files referenced in front or back HTML
+  // Stop any playing audio whenever card side flips or new card is loaded
+  useEffect(() => {
+    stopAllAnkiAudio();
+  }, [frontHtml, isAnswerShown]);
+
+  // Extract audio files referenced in front HTML
   const frontAudioSources = useMemo(() => {
     const matches: string[] = [];
     const regex = /data-src=["']([^"']+\.(?:mp3|wav|ogg|m4a))["']/gi;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(frontHtml)) !== null) {
-      if (match[1]) matches.push(match[1]);
+      if (match[1] && !matches.includes(match[1])) matches.push(match[1]);
     }
     return matches;
   }, [frontHtml]);
 
+  // Extract audio files referenced in back HTML
   const backAudioSources = useMemo(() => {
     const matches: string[] = [];
     const regex = /data-src=["']([^"']+\.(?:mp3|wav|ogg|m4a))["']/gi;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(backHtml)) !== null) {
-      if (match[1]) matches.push(match[1]);
+      if (match[1] && !matches.includes(match[1])) matches.push(match[1]);
     }
     return matches;
   }, [backHtml]);
+
+  // Distinct back audio files (avoid re-playing front pronunciation on answer side)
+  const newBackAudioSources = useMemo(() => {
+    const frontSet = new Set(frontAudioSources);
+    return backAudioSources.filter((src) => !frontSet.has(src));
+  }, [frontAudioSources, backAudioSources]);
 
   return (
     <Card
@@ -90,7 +102,11 @@ export const AnkiCard: React.FC<AnkiCardProps> = ({
         <Box textAlign="center" fontSize={{ base: "xl", md: "2xl" }} lineHeight="1.6" w="full">
           <div dangerouslySetInnerHTML={{ __html: frontHtml }} />
           {frontAudioSources.map((src, i) => (
-            <AnkiAudioPlayer key={`front-audio-${i}`} src={src} autoPlay />
+            <AnkiAudioPlayer
+              key={`front-audio-${src}-${i}`}
+              src={src}
+              autoPlay={i === 0}
+            />
           ))}
         </Box>
 
@@ -100,8 +116,13 @@ export const AnkiCard: React.FC<AnkiCardProps> = ({
             <Divider borderColor={borderColor} />
             <Box textAlign="center" fontSize={{ base: "lg", md: "xl" }} lineHeight="1.6" w="full">
               <div dangerouslySetInnerHTML={{ __html: backHtml }} />
-              {backAudioSources.map((src, i) => (
-                <AnkiAudioPlayer key={`back-audio-${i}`} src={src} autoPlay />
+              {/* Only render players for new back audio or allow playing them without duplicate autoplay */}
+              {newBackAudioSources.map((src, i) => (
+                <AnkiAudioPlayer
+                  key={`back-audio-${src}-${i}`}
+                  src={src}
+                  autoPlay={i === 0}
+                />
               ))}
             </Box>
           </Stack>

@@ -2,7 +2,7 @@ import React from "react";
 
 import type { StudySet } from "@quenti/prisma/client";
 
-import { HStack, Text } from "@chakra-ui/react";
+import { HStack, Text, Badge } from "@chakra-ui/react";
 
 import { IconPointFilled, IconProgress } from "@tabler/icons-react";
 
@@ -12,7 +12,10 @@ import { GenericCard } from "./generic-card";
 import { GenericCollaboratorsFooter } from "./generic-collaborators-footer";
 
 export interface StudySetCardProps {
-  studySet: Pick<StudySet, "id" | "title" | "visibility" | "type">;
+  studySet: Pick<StudySet, "id" | "title" | "visibility" | "type"> & {
+    tags?: any;
+    description?: string | null;
+  };
   numTerms: number;
   collaborators?: { total: number; avatars: string[] };
   draft?: boolean;
@@ -35,12 +38,23 @@ export const StudySetCard: React.FC<StudySetCardProps> = ({
   removable = false,
   onRemove,
 }) => {
+  const isAnki =
+    (Array.isArray(studySet.tags) && studySet.tags.includes("anki")) ||
+    (typeof studySet.tags === "string" && studySet.tags.includes("anki")) ||
+    (studySet.description?.toLowerCase().includes("anki") ?? false);
+
+  const cardUrl = draft
+    ? `/${studySet.id}/create`
+    : isAnki
+    ? `/sets/${studySet.id}/anki`
+    : `/${studySet.id}`;
+
   return (
     <GenericCard
       title={studySet.title || "Untitled"}
       numItems={numTerms}
-      url={!draft ? `/${studySet.id}` : `/${studySet.id}/create`}
-      itemsLabel={"term"}
+      url={cardUrl}
+      itemsLabel={isAnki ? "cards" : "term"}
       label={
         draft ? (
           <>
@@ -51,6 +65,10 @@ export const StudySetCard: React.FC<StudySetCardProps> = ({
               <Text>{plural(numTerms, "term")}</Text>
             </HStack>
           </>
+        ) : isAnki ? (
+          <Badge colorScheme="purple" fontSize="xs" px={1.5} py={0.5} rounded="md">
+            Anki SRS
+          </Badge>
         ) : undefined
       }
       reverseTitle={draft}

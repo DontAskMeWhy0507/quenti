@@ -82,6 +82,15 @@ export const getServerSideProps = async (ctx: GetServerSidePropsContext) => {
   if (!set || ["Private", "Class"].includes(set.visibility))
     return { props: { set: null, collab: set?.type == "Collab" } };
 
+  if (set.description?.toLowerCase().includes("anki")) {
+    return {
+      redirect: {
+        destination: `/sets/${set.id}/anki`,
+        permanent: false,
+      },
+    };
+  }
+
   const { count } = (
     await db
       .select({

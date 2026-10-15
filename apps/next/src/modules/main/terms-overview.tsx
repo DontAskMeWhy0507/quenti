@@ -187,16 +187,20 @@ const TermsByStats = () => {
 const TermsByOriginal = () => {
   const { terms } = useSet();
 
-  return <TermsList terms={terms} slice={100} />;
+  return <TermsList terms={terms} slice={25} />;
 };
 
 const TermsByAlphabetical = () => {
   const { terms } = useSet();
-  const sortOrder = terms
-    .sort((a, b) => a.word.localeCompare(b.word))
-    .map((x) => x.id);
+  const sortOrder = React.useMemo(
+    () =>
+      [...terms]
+        .sort((a, b) => a.word.localeCompare(b.word))
+        .map((x) => x.id),
+    [terms]
+  );
 
-  return <TermsList terms={terms} sortOrder={sortOrder} slice={100} />;
+  return <TermsList terms={terms} sortOrder={sortOrder} slice={25} />;
 };
 
 interface TermsCategoryProps {
@@ -243,7 +247,7 @@ const TermsCategory: React.FC<TermsCategoryProps> = ({
           </Text>
         </Stack>
       </HStack>
-      <TermsList terms={terms} />
+      <TermsList terms={terms} slice={25} />
     </Stack>
   );
 };
@@ -254,43 +258,105 @@ interface TermsListProps {
   slice?: number;
 }
 
-const TermsList: React.FC<TermsListProps> = ({ terms, sortOrder, slice }) => {
+const DEFAULT_CHUNK_SIZE = 25;
+
+const TermsList: React.FC<TermsListProps> = ({
+  terms,
+  sortOrder,
+  slice = DEFAULT_CHUNK_SIZE,
+}) => {
   const session = useSession();
   const { userId } = useSet();
 
   const creator = session.data?.user?.id === userId;
 
   const starredTerms = useContainerContext((s) => s.starredTerms);
-  const internalSort =
-    sortOrder || terms.sort((a, b) => a.rank - b.rank).map((x) => x.id);
-
   const starredOnly = React.useContext(TermsOverviewContext).starredOnly;
   const internalTerms = starredOnly
     ? terms.filter((x) => starredTerms.includes(x.id))
     : terms;
 
-  const [showSlice, setShowSlice] = React.useState(slice);
+  const [showSlice, setShowSlice] = React.useState(slice || DEFAULT_CHUNK_SIZE);
+  const sentinelRef = React.useRef<HTMLDivElement>(null);
+
+  const sortedTerms = React.useMemo(() => {
+    if (sortOrder && sortOrder.length > 0) {
+      const orderMap = new Map<string, number>();
+      sortOrder.forEach((id, idx) => orderMap.set(id, idx));
+      return [...internalTerms].sort(
+        (a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0),
+      );
+    }
+    return [...internalTerms].sort((a, b) => a.rank - b.rank);
+  }, [internalTerms, sortOrder]);
+
+  const visibleTerms = React.useMemo(() => {
+    return sortedTerms.slice(0, showSlice);
+  }, [sortedTerms, showSlice]);
+
+  // Progressive infinite loading via IntersectionObserver
+  React.useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setShowSlice((prev) => {
+            if (prev < sortedTerms.length) {
+              return Math.min(prev + DEFAULT_CHUNK_SIZE, sortedTerms.length);
+            }
+            return prev;
+          });
+        }
+      },
+      { rootMargin: "400px" },
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [sortedTerms.length]);
 
   return (
     <>
       <Stack spacing="14px">
-        {internalTerms
-          .sort(
-            (a, b) => internalSort.indexOf(a.id) - internalSort.indexOf(b.id),
-          )
-          .slice(0, showSlice || terms.length)
-          .map((term) => (
-            <TermWrapper term={term} key={term.id} creator={creator} />
-          ))}
+        {visibleTerms.map((term) => (
+          <TermWrapper term={term} key={term.id} creator={creator} />
+        ))}
       </Stack>
-      {showSlice !== undefined && showSlice < terms.length && (
-        <Button
-          onClick={() => {
-            setShowSlice((s) => (s || 0) + 100);
-          }}
-        >
-          See more
-        </Button>
+
+      {/* Sentinel for progressive infinite loading */}
+      {showSlice < sortedTerms.length && (
+        <Box ref={sentinelRef} h="20px" w="full" py={2} />
+      )}
+
+      {showSlice < sortedTerms.length && (
+        <HStack justify="space-between" pt={3} wrap="wrap" gap={3}>
+          <Text fontSize="sm" color="gray.500">
+            Đang hiển thị {visibleTerms.length} / {sortedTerms.length} thuật ngữ
+          </Text>
+          <HStack spacing={2}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setShowSlice((s) =>
+                  Math.min(s + DEFAULT_CHUNK_SIZE, sortedTerms.length),
+                );
+              }}
+            >
+              Xem thêm (
+              {Math.min(DEFAULT_CHUNK_SIZE, sortedTerms.length - showSlice)})
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setShowSlice(sortedTerms.length);
+              }}
+            >
+              Tải tất cả ({sortedTerms.length})
+            </Button>
+          </HStack>
+        </HStack>
       )}
     </>
   );

@@ -90,6 +90,7 @@ export const importPackageHandler = async ({
         description: `Imported from Anki (${deck.cards.length} cards)`,
         userId,
         created: true,
+        tags: ["anki"],
       },
     });
 

@@ -7,58 +7,86 @@ export interface AnkiAudioPlayerProps {
   autoPlay?: boolean;
 }
 
+// Global reference to ensure only ONE audio plays at any time (Singleton Audio Manager)
+let currentPlayingAudio: HTMLAudioElement | null = null;
+
+export const stopAllAnkiAudio = () => {
+  if (currentPlayingAudio) {
+    currentPlayingAudio.pause();
+    currentPlayingAudio.currentTime = 0;
+    currentPlayingAudio = null;
+  }
+};
+
 export const AnkiAudioPlayer: React.FC<AnkiAudioPlayerProps> = ({
   src,
-  autoPlay = true,
+  autoPlay = false,
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const playAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {
-        // Auto-play was blocked or source loading
-      });
+    if (!audioRef.current) return;
+
+    // Stop currently playing sound before starting new one
+    if (currentPlayingAudio && currentPlayingAudio !== audioRef.current) {
+      currentPlayingAudio.pause();
+      currentPlayingAudio.currentTime = 0;
     }
+
+    currentPlayingAudio = audioRef.current;
+    audioRef.current.currentTime = 0;
+    audioRef.current.play().catch(() => {
+      // Auto-play was blocked by browser policy or loading
+    });
   };
 
   useEffect(() => {
     if (autoPlay) {
-      const timeout = setTimeout(playAudio, 100);
+      const timeout = setTimeout(playAudio, 150);
       return () => clearTimeout(timeout);
     }
   }, [src, autoPlay]);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-      if (e.key === "r" || e.key === "R") {
-        playAudio();
+    return () => {
+      if (currentPlayingAudio && currentPlayingAudio === audioRef.current) {
+        currentPlayingAudio.pause();
+        currentPlayingAudio = null;
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   return (
-    <HStack display="inline-flex" my={1}>
-      <audio ref={audioRef} src={src} preload="auto" />
-      <Tooltip label="Replay audio (R)" placement="top" hasArrow>
+    <HStack
+      display="inline-flex"
+      my={1}
+      onClick={(e) => {
+        // Prevent clicking audio player from bubbling and flipping the card
+        e.stopPropagation();
+      }}
+    >
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="auto"
+        onEnded={() => {
+          if (currentPlayingAudio === audioRef.current) {
+            currentPlayingAudio = null;
+          }
+        }}
+      />
+      <Tooltip label="Play audio" placement="top" hasArrow>
         <IconButton
-          aria-label="Replay audio"
+          aria-label="Play audio"
           icon={<IconVolume size={20} />}
           size="sm"
           variant="ghost"
           colorScheme="orange"
-          onClick={playAudio}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            playAudio();
+          }}
         />
       </Tooltip>
     </HStack>

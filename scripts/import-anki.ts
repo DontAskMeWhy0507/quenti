@@ -137,6 +137,7 @@ async function main() {
           description: `Imported from Anki (${deck.cards.length} cards)`,
           userId: targetUserId,
           created: true,
+          tags: ["anki"],
         },
       });
 
