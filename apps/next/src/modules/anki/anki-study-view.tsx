@@ -28,21 +28,27 @@ export const AnkiStudyView: React.FC<AnkiStudyViewProps> = ({ studySetId }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnswerShown, setIsAnswerShown] = useState(false);
 
+  const [sessionCards, setSessionCards] = useState<any[]>([]);
+
   const utils = api.useContext();
   const queueQuery = api.anki.getReviewQueue.useQuery(
     { studySetId },
     { refetchOnWindowFocus: false }
   );
 
+  useEffect(() => {
+    if (queueQuery.data?.cards) {
+      setSessionCards(queueQuery.data.cards);
+    }
+  }, [queueQuery.data?.cards]);
+
   const submitReviewMutation = api.anki.submitReview.useMutation({
-    onSuccess: () => {
-      // Advance to next card
-      setIsAnswerShown(false);
-      setCurrentIndex((prev) => prev + 1);
+    onError: (err) => {
+      console.error("Failed to submit review:", err);
     },
   });
 
-  const cards = queueQuery.data?.cards || [];
+  const cards = sessionCards;
   const currentCard = cards[currentIndex];
   const isFinished = !queueQuery.isLoading && (cards.length === 0 || currentIndex >= cards.length);
 
@@ -53,11 +59,19 @@ export const AnkiStudyView: React.FC<AnkiStudyViewProps> = ({ studySetId }) => {
   const handleRate = useCallback(
     (rating: 1 | 2 | 3 | 4) => {
       if (!currentCard || submitReviewMutation.isLoading) return;
+      const ratedCard = currentCard;
       submitReviewMutation.mutate({
         studySetId,
-        termId: currentCard.termId,
+        termId: ratedCard.termId,
         rating,
       });
+
+      setIsAnswerShown(false);
+      if (rating === 1) {
+        // Re-queue card to end of session queue so it repeats before session ends
+        setSessionCards((prev) => [...prev, ratedCard]);
+      }
+      setCurrentIndex((prev) => prev + 1);
     },
     [currentCard, studySetId, submitReviewMutation]
   );

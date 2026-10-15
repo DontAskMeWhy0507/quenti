@@ -26,6 +26,11 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ error: "Invalid media path" });
   }
 
+  // Validate no directory traversal in segments
+  if (pathSegments.some((s) => s.includes("..") || s === ".")) {
+    return res.status(400).json({ error: "Invalid path segments" });
+  }
+
   // Sanitized filename (last segment is the actual file)
   const filename = path.basename(pathSegments[pathSegments.length - 1]);
   const ext = path.extname(filename).toLowerCase();
@@ -44,6 +49,11 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     targetFile = pathOption2;
   } else {
     return res.status(404).json({ error: "Media not found" });
+  }
+
+  const resolved = path.resolve(targetFile);
+  if (!resolved.startsWith(baseUploadsDir + path.sep) && resolved !== baseUploadsDir) {
+    return res.status(403).json({ error: "Access denied" });
   }
 
   const stat = fs.statSync(targetFile);

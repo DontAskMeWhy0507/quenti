@@ -1,29 +1,39 @@
-import path from "path";
-import fs from "fs";
+import * as path from "path";
+import * as fs from "fs";
 import { decodeProtobufMedia, parseAnkiPackage } from "../packages/lib/src/anki/parser";
 
 describe("Anki Archive Parser", () => {
-  test("decodeProtobufMedia decodes varints, string filenames, and entry IDs", () => {
-    // Construct sample protobuf bytes:
-    // field 1, wire 2 (entry message)
-    //   inner field 1, wire 2: "audio.mp3" (len 9)
-    //   inner field 2, wire 0: 42 (varint 42)
-    const fnBytes = Buffer.from("audio.mp3", "utf-8");
-    const inner = Buffer.concat([
-      Buffer.from([0x0a, fnBytes.length]),
-      fnBytes,
-      Buffer.from([0x10, 42]),
-    ]);
-    const entryMsg = Buffer.concat([
-      Buffer.from([0x0a, inner.length]),
-      inner,
+  test("decodeProtobufMedia decodes repeated entries sequentially without colliding on sizes", () => {
+    // Construct sample protobuf with 2 entries having IDENTICAL file size 8212 (0x2014):
+    // Entry 0: "file1.jpg", size: 8212
+    // Entry 1: "file2.jpg", size: 8212
+    const makeEntry = (name: string, size: number) => {
+      const fnBytes = Buffer.from(name, "utf-8");
+      // field 1 (fn): tag 0x0a, length, name
+      // field 2 (size): tag 0x10, varint size (8212 -> 0x94, 0x40)
+      const inner = Buffer.concat([
+        Buffer.from([0x0a, fnBytes.length]),
+        fnBytes,
+        Buffer.from([0x10, 0x94, 0x40]),
+      ]);
+      return Buffer.concat([
+        Buffer.from([0x0a, inner.length]),
+        inner,
+      ]);
+    };
+
+    const payload = Buffer.concat([
+      makeEntry("file1.jpg", 8212),
+      makeEntry("file2.jpg", 8212),
     ]);
 
-    const result = decodeProtobufMedia(new Uint8Array(entryMsg));
-    expect(result["42"]).toBe("audio.mp3");
+    const result = decodeProtobufMedia(new Uint8Array(payload));
+    expect(result["0"]).toBe("file1.jpg");
+    expect(result["1"]).toBe("file2.jpg");
+    expect(Object.keys(result).length).toBe(2);
   });
 
-  test("parseAnkiPackage extracts decks, notes, cards, and media mapping from All Decks.apkg", async () => {
+  test("parseAnkiPackage extracts all decks, notes, cards, and complete media mapping from All Decks.apkg", async () => {
     const apkgPath = path.resolve(__dirname, "../All Decks.apkg");
     if (!fs.existsSync(apkgPath)) {
       console.warn("All Decks.apkg not found, skipping test");
@@ -33,7 +43,8 @@ describe("Anki Archive Parser", () => {
     const result = await parseAnkiPackage(apkgPath);
 
     expect(result.decks.length).toBeGreaterThanOrEqual(8);
-    expect(Object.keys(result.mediaMap).length).toBeGreaterThan(1000);
+    // All Decks.apkg has 14,951 media files: must be > 14,000 without collision dropping
+    expect(Object.keys(result.mediaMap).length).toBeGreaterThan(14000);
 
     // Verify deck structure
     const book1 = result.decks.find((d) => d.name.includes("1.Book"));

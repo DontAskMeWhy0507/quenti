@@ -2,9 +2,21 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import JSZip from "jszip";
+import * as fzstd from "fzstd";
 import type { NonNullableUserContext } from "../../lib/types";
 import type { TImportPackageSchema } from "./import-package.schema";
 import { parseAnkiPackage } from "../../../../lib/src/anki/parser";
+
+function safeTruncate(str: string, maxLen = 1000): string {
+  if (!str || str.length <= maxLen) return str;
+  let cut = str.slice(0, maxLen);
+  const lastOpen = cut.lastIndexOf("<");
+  const lastClose = cut.lastIndexOf(">");
+  if (lastOpen > lastClose) {
+    cut = cut.slice(0, lastOpen);
+  }
+  return cut;
+}
 
 type ImportPackageOptions = {
   ctx: NonNullableUserContext;
@@ -55,7 +67,10 @@ export const importPackageHandler = async ({
       for (const [entryId, realName] of Object.entries(parsed.mediaMap)) {
         const fileEntry = zip.file(entryId);
         if (fileEntry) {
-          const content = await fileEntry.async("nodebuffer");
+          let content = await fileEntry.async("nodebuffer");
+          if (content.length >= 4 && content[0] === 0x28 && content[1] === 0xb5 && content[2] === 0x2f && content[3] === 0xfd) {
+            content = Buffer.from(fzstd.decompress(content));
+          }
           const safeName = path.basename(realName);
           fs.writeFileSync(path.join(uploadsBase, safeName), content);
         }
@@ -95,8 +110,8 @@ export const importPackageHandler = async ({
       const chunk = deck.cards.slice(i, i + batchSize);
       await ctx.prisma.term.createMany({
         data: chunk.map((c, idx) => ({
-          word: c.front.slice(0, 1000),
-          definition: c.back.slice(0, 1000),
+          word: safeTruncate(c.front, 1000),
+          definition: safeTruncate(c.back, 1000),
           rank: i + idx,
           studySetId: studySet.id,
           assetUrl: c.imageFiles[0] ? `/uploads/anki/${path.basename(c.imageFiles[0])}` : null,

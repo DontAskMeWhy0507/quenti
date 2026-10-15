@@ -59,16 +59,18 @@ function resolveConditionals(template: string, fields: Record<string, string>): 
     let changed = false;
 
     // Positive conditional: {{#Field}}...{{/Field}}
-    result = result.replace(/\{\{#([a-zA-Z0-9_ -]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_match, fieldName, inner) => {
+    result = result.replace(/\{\{#([^{}#/:]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_match, rawField, inner) => {
       changed = true;
-      const val = fields[fieldName];
+      const fieldName = rawField.trim();
+      const val = fields[fieldName] ?? fields[rawField];
       return isFieldEmpty(val) ? "" : inner;
     });
 
     // Inverted conditional: {{^Field}}...{{/Field}}
-    result = result.replace(/\{\{\^([a-zA-Z0-9_ -]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_match, fieldName, inner) => {
+    result = result.replace(/\{\{\^([^{}#/:]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_match, rawField, inner) => {
       changed = true;
-      const val = fields[fieldName];
+      const fieldName = rawField.trim();
+      const val = fields[fieldName] ?? fields[rawField];
       return isFieldEmpty(val) ? inner : "";
     });
 
@@ -88,8 +90,9 @@ function replaceFields(
   let rendered = resolveConditionals(template, fields);
 
   // Replace {{cloze:FieldName}}
-  rendered = rendered.replace(/\{\{cloze:([a-zA-Z0-9_ -]+)\}\}/g, (_match, fieldName) => {
-    const val = fields[fieldName] ?? "";
+  rendered = rendered.replace(/\{\{cloze:([^{}#/:]+)\}\}/g, (_match, rawField) => {
+    const fieldName = rawField.trim();
+    const val = fields[fieldName] ?? fields[rawField] ?? "";
     if (clozeOrdinal !== undefined) {
       return renderCloze(val, clozeOrdinal, isBack);
     }
@@ -97,8 +100,9 @@ function replaceFields(
   });
 
   // Replace {{type:FieldName}}
-  rendered = rendered.replace(/\{\{type:([a-zA-Z0-9_ -]+)\}\}/g, (_match, fieldName) => {
-    const val = fields[fieldName] ?? "";
+  rendered = rendered.replace(/\{\{type:([^{}#/:]+)\}\}/g, (_match, rawField) => {
+    const fieldName = rawField.trim();
+    const val = fields[fieldName] ?? fields[rawField] ?? "";
     if (!isBack) {
       return `<input class="anki-type-ans" placeholder="Type answer..." />`;
     }
@@ -106,8 +110,9 @@ function replaceFields(
   });
 
   // Replace standard {{FieldName}}
-  rendered = rendered.replace(/\{\{([a-zA-Z0-9_ -]+)\}\}/g, (_match, fieldName) => {
-    return fields[fieldName] ?? "";
+  rendered = rendered.replace(/\{\{([^{}#/:]+)\}\}/g, (_match, rawField) => {
+    const fieldName = rawField.trim();
+    return fields[fieldName] ?? fields[rawField] ?? "";
   });
 
   return rendered;
@@ -124,15 +129,29 @@ export function sanitizeAnkiHtml(
   const audioSet = new Set<string>();
   const imageSet = new Set<string>();
 
-  // Extract and replace [sound:filename.ext]
-  let html = rawHtml.replace(/\[sound:([^\]]+)\]/g, (_match, filename) => {
+  // 1. Strip dangerous script, iframe, object, embed, style tags to prevent stored XSS
+  let html = rawHtml
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
+    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, "")
+    .replace(/<embed\b[^>]*>/gi, "")
+    .replace(/<applet\b[^<]*(?:(?!<\/applet>)<[^<]*)*<\/applet>/gi, "");
+
+  // 2. Strip inline event handlers (e.g. onerror=, onload=, onclick=) and javascript: pseudo-protocol
+  html = html
+    .replace(/\s+on[a-zA-Z]+=["'][^"']*["']/gi, "")
+    .replace(/\s+on[a-zA-Z]+=[^\s>]+/gi, "")
+    .replace(/(href|src)\s*=\s*["']\s*javascript:[^"']*["']/gi, '$1="#"');
+
+  // 3. Extract and replace [sound:filename.ext]
+  html = html.replace(/\[sound:([^\]]+)\]/g, (_match, filename) => {
     const cleanFile = filename.trim();
     audioSet.add(cleanFile);
     const src = mediaUrlPrefix ? `${mediaUrlPrefix}/${cleanFile}` : cleanFile;
     return `<div data-anki-sound="${cleanFile}" class="anki-audio" data-src="${src}"></div>`;
   });
 
-  // Extract and rewrite <img src="...">
+  // 4. Extract and rewrite <img src="...">
   html = html.replace(/<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)>/gi, (_match, pre, src, post) => {
     const cleanSrc = src.trim();
     if (!cleanSrc.startsWith("http://") && !cleanSrc.startsWith("https://") && !cleanSrc.startsWith("data:")) {

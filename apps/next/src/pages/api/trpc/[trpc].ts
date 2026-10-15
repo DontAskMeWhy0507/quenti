@@ -7,6 +7,14 @@ import { createNextApiHandler } from "@quenti/trpc/server/adapters/next";
 import { appRouter } from "@quenti/trpc/server/root";
 import { createTRPCContext } from "@quenti/trpc/server/trpc";
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "150mb",
+    },
+  },
+};
+
 export default withAxiom(
   createNextApiHandler({
     router: appRouter,

@@ -31,6 +31,15 @@ export const AnkiAudioPlayer: React.FC<AnkiAudioPlayerProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
       if (e.key === "r" || e.key === "R") {
         playAudio();
       }

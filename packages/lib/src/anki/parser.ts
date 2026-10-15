@@ -39,6 +39,7 @@ export interface ParseApkgResult {
 export function decodeProtobufMedia(bytes: Uint8Array): Record<string, string> {
   const map: Record<string, string> = {};
   let pos = 0;
+  let entryIndex = 0;
 
   function readVarint(): number {
     let result = 0;
@@ -61,7 +62,6 @@ export function decodeProtobufMedia(bytes: Uint8Array): Record<string, string> {
       const entryLen = readVarint();
       const endPos = pos + entryLen;
       let filename = "";
-      let entryId = "";
 
       while (pos < endPos) {
         const innerTag = readVarint();
@@ -72,9 +72,6 @@ export function decodeProtobufMedia(bytes: Uint8Array): Record<string, string> {
           const fnLen = readVarint();
           filename = new TextDecoder().decode(bytes.slice(pos, pos + fnLen));
           pos += fnLen;
-        } else if (innerField === 2 && innerWire === 0) {
-          const idNum = readVarint();
-          entryId = String(idNum);
         } else if (innerWire === 0) {
           readVarint();
         } else if (innerWire === 2) {
@@ -85,8 +82,9 @@ export function decodeProtobufMedia(bytes: Uint8Array): Record<string, string> {
         }
       }
 
-      if (entryId && filename) {
-        map[entryId] = filename;
+      if (filename) {
+        map[String(entryIndex)] = filename;
+        entryIndex++;
       }
     } else if (wireType === 2) {
       const len = readVarint();
@@ -186,11 +184,14 @@ export async function parseAnkiPackage(
       if (!note) continue;
 
       const notetype = rawData.notetypes[note.mid];
-      const tmpl = notetype?.templates[card.ord] ?? {
-        name: "Default",
-        qfmt: "{{Front}}",
-        afmt: "{{Back}}",
-      };
+      const tmpl =
+        notetype?.templates[card.ord] ??
+        notetype?.templates[0] ??
+        notetype?.templates["0"] ?? {
+          name: "Default",
+          qfmt: "{{Front}}",
+          afmt: "{{Back}}",
+        };
 
       const rendered: RenderedCard = renderAnkiCard({
         qfmt: tmpl.qfmt,

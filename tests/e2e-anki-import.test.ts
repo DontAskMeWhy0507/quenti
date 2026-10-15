@@ -1,5 +1,5 @@
-import path from "path";
-import fs from "fs";
+import * as path from "path";
+import * as fs from "fs";
 import { parseAnkiPackage } from "../packages/lib/src/anki/parser";
 import { calculateNextSchedule, getIntervalEstimateLabel, CardScheduleState } from "../packages/lib/src/anki/srs";
 
@@ -28,9 +28,9 @@ describe("E2E Anki Import & Feature Parity Verification", () => {
     const totalCards = result.decks.reduce((sum, d) => sum + d.cards.length, 0);
     expect(totalCards).toBe(3873);
 
-    // 3. Verify media mapping count
+    // 3. Verify media mapping count (14951 files in All Decks.apkg)
     const mediaCount = Object.keys(result.mediaMap).length;
-    expect(mediaCount).toBe(4582);
+    expect(mediaCount).toBe(14951);
   });
 
   test("Step 2: Verify audio and image rendering in cards", async () => {

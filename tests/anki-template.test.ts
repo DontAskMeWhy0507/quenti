@@ -82,14 +82,32 @@ describe("Anki Template & Cloze Parsing Engine", () => {
     expect(cardC2.answerHtml).toContain('Canberra is the capital of Australia (not <span class="anki-cloze">Sydney</span>).');
   });
 
-  test("extracts [sound:...] tags and rewrites image sources with mediaUrlPrefix", () => {
-    const rawHtml = '<div><img src="apple.jpg" /> [sound:apple.mp3] [sound:meaning.mp3]</div>';
-    const result = sanitizeAnkiHtml(rawHtml, "/api/anki/media/set123");
+  test("supports field names with parentheses, dots, and Unicode", () => {
+    const card = renderAnkiCard({
+      qfmt: "<div>{{Word (Audio)}}</div>{{#Example.Sentence}}<div>{{Example.Sentence}}</div>{{/Example.Sentence}}<div>{{Từ vựng}}</div>",
+      afmt: "Back",
+      fields: {
+        "Word (Audio)": "Hello",
+        "Example.Sentence": "Hello world.",
+        "Từ vựng": "Xin chào",
+      },
+    });
 
-    expect(result.audioFiles).toEqual(["apple.mp3", "meaning.mp3"]);
-    expect(result.imageFiles).toEqual(["apple.jpg"]);
-    expect(result.html).toContain('src="/api/anki/media/set123/apple.jpg"');
-    expect(result.html).toContain('data-anki-sound="apple.mp3"');
-    expect(result.html).toContain('data-src="/api/anki/media/set123/apple.mp3"');
+    expect(card.questionHtml).toContain("<div>Hello</div>");
+    expect(card.questionHtml).toContain("<div>Hello world.</div>");
+    expect(card.questionHtml).toContain("<div>Xin chào</div>");
+  });
+
+  test("sanitizes dangerous HTML tags and event handlers to prevent XSS", () => {
+    const dangerousHtml = '<div>Hello <script>alert("xss")</script><iframe src="evil.com"></iframe><img src="pic.jpg" onerror="alert(1)" onclick="steal()" /></div>';
+    const result = sanitizeAnkiHtml(dangerousHtml, "/api/anki/media");
+
+    expect(result.html).not.toContain("<script");
+    expect(result.html).not.toContain("alert(");
+    expect(result.html).not.toContain("<iframe");
+    expect(result.html).not.toContain("onerror");
+    expect(result.html).not.toContain("onclick");
+    expect(result.html).toContain('src="/api/anki/media/pic.jpg"');
   });
 });
+

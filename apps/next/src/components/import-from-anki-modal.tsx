@@ -78,8 +78,9 @@ export const ImportFromAnkiModal: React.FC<ImportFromAnkiModalProps> = ({
     const sizeMb = selectedFile.size / (1024 * 1024);
     if (sizeMb > 150) {
       setError(
-        `This file is ${sizeMb.toFixed(1)}MB. For packages over 150MB, using the CLI importer "npm run anki:import '${selectedFile.name}'" is recommended for fastest performance.`
+        `This file is ${sizeMb.toFixed(1)}MB. For packages over 150MB, please use the CLI importer "npm run anki:import '${selectedFile.name}'" for best performance.`
       );
+      return;
     }
 
     setLoading(true);

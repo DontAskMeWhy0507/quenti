@@ -30,7 +30,7 @@ export const AnkiRatingBar: React.FC<AnkiRatingBarProps> = ({
         borderColor="red.300"
         _dark={{ borderColor: "red.700" }}
         onClick={() => onRate(1)}
-        disabled={isLoading}
+        isDisabled={isLoading}
       >
         <Stack spacing={0} align="center">
           <Text fontSize="xs" fontWeight={600} opacity={0.8}>
@@ -51,7 +51,7 @@ export const AnkiRatingBar: React.FC<AnkiRatingBarProps> = ({
         borderColor="yellow.400"
         _dark={{ borderColor: "yellow.600" }}
         onClick={() => onRate(2)}
-        disabled={isLoading}
+        isDisabled={isLoading}
       >
         <Stack spacing={0} align="center">
           <Text fontSize="xs" fontWeight={600} opacity={0.8}>
@@ -72,7 +72,7 @@ export const AnkiRatingBar: React.FC<AnkiRatingBarProps> = ({
         borderColor="blue.300"
         _dark={{ borderColor: "blue.700" }}
         onClick={() => onRate(3)}
-        disabled={isLoading}
+        isDisabled={isLoading}
       >
         <Stack spacing={0} align="center">
           <Text fontSize="xs" fontWeight={600} opacity={0.8}>
@@ -93,7 +93,7 @@ export const AnkiRatingBar: React.FC<AnkiRatingBarProps> = ({
         borderColor="green.300"
         _dark={{ borderColor: "green.700" }}
         onClick={() => onRate(4)}
-        disabled={isLoading}
+        isDisabled={isLoading}
       >
         <Stack spacing={0} align="center">
           <Text fontSize="xs" fontWeight={600} opacity={0.8}>

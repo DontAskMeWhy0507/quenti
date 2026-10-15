@@ -31,6 +31,7 @@ def decode_varint(b, pos):
 def decode_protobuf_media(b):
     media_map = {}
     pos = 0
+    entry_index = 0
     while pos < len(b):
         tag, pos = decode_varint(b, pos)
         fn, wt = tag >> 3, tag & 0x7
@@ -38,7 +39,6 @@ def decode_protobuf_media(b):
             entry_len, pos = decode_varint(b, pos)
             end_pos = pos + entry_len
             filename = ""
-            entry_id = ""
             while pos < end_pos:
                 inner_tag, pos = decode_varint(b, pos)
                 ifn, iwt = inner_tag >> 3, inner_tag & 0x7
@@ -46,9 +46,6 @@ def decode_protobuf_media(b):
                     flen, pos = decode_varint(b, pos)
                     filename = b[pos:pos+flen].decode("utf-8", errors="replace")
                     pos += flen
-                elif ifn == 2 and iwt == 0:
-                    id_num, pos = decode_varint(b, pos)
-                    entry_id = str(id_num)
                 elif iwt == 2:
                     l, pos = decode_varint(b, pos)
                     pos += l
@@ -56,8 +53,9 @@ def decode_protobuf_media(b):
                     _, pos = decode_varint(b, pos)
                 else:
                     pos += 1
-            if entry_id and filename:
-                media_map[entry_id] = filename
+            if filename:
+                media_map[str(entry_index)] = filename
+                entry_index += 1
         elif wt == 2:
             l, pos = decode_varint(b, pos)
             pos += l
@@ -218,14 +216,20 @@ def extract_anki_metadata(apkg_path, output_json=None, extract_media_dir=None):
         # 6. Optional media extraction
         if extract_media_dir:
             os.makedirs(extract_media_dir, exist_ok=True)
+            dctx = zstandard.ZstdDecompressor() if zstandard else None
             for entry_id, real_name in media_map.items():
                 if entry_id in names:
                     out_path = os.path.join(extract_media_dir, real_name)
                     # Protect against directory traversal in filenames
                     out_path = os.path.abspath(out_path)
                     if out_path.startswith(os.path.abspath(extract_media_dir)):
+                        raw_data = z.read(entry_id)
+                        if raw_data.startswith(b"(\xb5/\xfd") and dctx:
+                            file_data = dctx.decompress(raw_data, max_output_size=100*1024*1024)
+                        else:
+                            file_data = raw_data
                         with open(out_path, "wb") as mf:
-                            mf.write(z.read(entry_id))
+                            mf.write(file_data)
 
         conn.close()
         try:
