@@ -1,3 +1,4 @@
+import { ankiRouter } from "./routers/anki/_router";
 import { assignmentsRouter } from "./routers/assignments/_router";
 import { classesRouter } from "./routers/classes/_router";
 import { collabRouter } from "./routers/collab/_router";
@@ -36,6 +37,7 @@ export const appRouter = createTRPCRouter({
   leaderboard: leaderboardRouter,
   recent: recentRouter,
   import: importRouter,
+  anki: ankiRouter,
   images: imagesRouter,
   classes: classesRouter,
   assignments: assignmentsRouter,
