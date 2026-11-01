@@ -1,5 +1,3 @@
-import { Open_Sans, Outfit } from "next/font/google";
-
 import {
   type ChakraProps,
   type ChakraTheme,
@@ -9,18 +7,22 @@ import {
 } from "@chakra-ui/react";
 import { type StyleFunctionProps, cssVar, mode } from "@chakra-ui/theme-tools";
 
-export const outfit = Outfit({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-outfit",
-});
-export const openSans = Open_Sans({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-open-sans",
-});
+// Deployment fix (2026-11-01): next/font/google crashes this app's
+// production build on Vercel — its loader throws
+// "Cannot read properties of null (reading '1')" parsing the font file URL
+// from the fetched Google Fonts CSS. The fonts are therefore loaded with a
+// plain <link> in apps/next/src/pages/_document.tsx and referenced by family
+// name here. Only .style.fontFamily (theme + components) and .variable
+// (_document body class) are consumed anywhere in the app, and the
+// --font-* CSS variables are never referenced.
+export const outfit = {
+  style: { fontFamily: "'Outfit', sans-serif" },
+  variable: "font-outfit",
+};
+export const openSans = {
+  style: { fontFamily: "'Open Sans', sans-serif" },
+  variable: "font-open-sans",
+};
 
 export const config = { initialColorMode: "light", useSystemColorMode: false };
 
