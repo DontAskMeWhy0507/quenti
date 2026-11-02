@@ -66,6 +66,16 @@ export const authOptions: NextAuthOptions = {
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       allowDangerousEmailAccountLinking: true,
+      authorization: {
+        params: {
+          // drive.readonly powers the "Import from Google Drive" feature:
+          // the server lists and downloads .apkg files with the user's token.
+          scope:
+            "openid email profile https://www.googleapis.com/auth/drive.readonly",
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
     }),
     // @ts-expect-error Type '"email"' is not assignable
     {

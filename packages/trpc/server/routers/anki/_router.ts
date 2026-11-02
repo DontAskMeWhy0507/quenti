@@ -5,6 +5,10 @@ import { ZSubmitReviewSchema } from "./submit-review.schema";
 import { submitReviewHandler } from "./submit-review.handler";
 import { ZImportPackageSchema } from "./import-package.schema";
 import { importPackageHandler } from "./import-package.handler";
+import { ZListDriveDecksSchema } from "./list-drive-decks.schema";
+import { listDriveDecksHandler } from "./list-drive-decks.handler";
+import { ZImportFromDriveSchema } from "./import-from-drive.schema";
+import { importFromDriveHandler } from "./import-from-drive.handler";
 
 export const ankiRouter = createTRPCRouter({
   getReviewQueue: protectedProcedure
@@ -23,6 +27,18 @@ export const ankiRouter = createTRPCRouter({
     .input(ZImportPackageSchema)
     .mutation(async ({ ctx, input }) => {
       return importPackageHandler({ ctx, input });
+    }),
+
+  listDriveDecks: protectedProcedure
+    .input(ZListDriveDecksSchema)
+    .query(async ({ ctx, input }) => {
+      return listDriveDecksHandler({ ctx, input });
+    }),
+
+  importFromDrive: protectedProcedure
+    .input(ZImportFromDriveSchema)
+    .mutation(async ({ ctx, input }) => {
+      return importFromDriveHandler({ ctx, input });
     }),
 });
 

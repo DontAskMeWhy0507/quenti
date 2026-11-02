@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useRouter } from "next/router";
+import { signIn } from "next-auth/react";
 import { Modal } from "@quenti/components/modal";
 import { api } from "@quenti/trpc";
 import {
@@ -13,14 +14,28 @@ import {
   Box,
   HStack,
   Icon,
+  Divider,
   useColorModeValue,
 } from "@chakra-ui/react";
-import { IconUpload, IconFileZip, IconCheck, IconAlertCircle } from "@tabler/icons-react";
+import {
+  IconUpload,
+  IconFileZip,
+  IconCheck,
+  IconAlertCircle,
+  IconBrandGoogleDrive,
+} from "@tabler/icons-react";
 import { effectChannel } from "../events/effects";
 
 export interface ImportFromAnkiModalProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+interface DriveFileItem {
+  id: string;
+  name: string;
+  sizeBytes: number;
+  modifiedTime: string;
 }
 
 export const ImportFromAnkiModal: React.FC<ImportFromAnkiModalProps> = ({
@@ -34,28 +49,77 @@ export const ImportFromAnkiModal: React.FC<ImportFromAnkiModalProps> = ({
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [progressMsg, setProgressMsg] = useState("");
+  const [driveFiles, setDriveFiles] = useState<DriveFileItem[] | null>(null);
+  const [driveLoading, setDriveLoading] = useState(false);
+  const [driveNeedsConsent, setDriveNeedsConsent] = useState(false);
 
   const dropzoneBg = useColorModeValue("gray.50", "gray.900");
   const borderColor = useColorModeValue("gray.300", "gray.700");
   const secondaryText = useColorModeValue("gray.600", "gray.400");
+  const driveRowHoverBg = useColorModeValue("gray.100", "gray.800");
+
+  const onImportSuccess = async (data: { createdSetId?: string }) => {
+    setLoading(false);
+    setProgressMsg("Import complete!");
+    effectChannel.emit("prepareConfetti");
+    effectChannel.emit("confetti");
+
+    onClose();
+    if (data.createdSetId) {
+      await router.push(`/${data.createdSetId}`);
+    }
+  };
+  const onImportError = (err: { message?: string }) => {
+    setLoading(false);
+    setError(err.message || "Failed to import Anki package");
+  };
 
   const importMutation = api.anki.importPackage.useMutation({
-    onSuccess: async (data) => {
-      setLoading(false);
-      setProgressMsg("Import complete!");
-      effectChannel.emit("prepareConfetti");
-      effectChannel.emit("confetti");
-
-      onClose();
-      if (data.createdSetId) {
-        await router.push(`/${data.createdSetId}`);
-      }
-    },
-    onError: (err) => {
-      setLoading(false);
-      setError(err.message || "Failed to import Anki package");
-    },
+    onSuccess: onImportSuccess,
+    onError: onImportError,
   });
+
+  const driveImportMutation = api.anki.importFromDrive.useMutation({
+    onSuccess: onImportSuccess,
+    onError: onImportError,
+  });
+
+  const driveListQuery = api.anki.listDriveDecks.useQuery(
+    {},
+    { enabled: false, retry: false },
+  );
+
+  const handleLoadDriveFiles = async () => {
+    setError("");
+    setDriveNeedsConsent(false);
+    setDriveLoading(true);
+    const res = await driveListQuery.refetch();
+    setDriveLoading(false);
+    if (res.error) {
+      const msg = res.error.message || "";
+      if (msg.includes("DRIVE_NEEDS_CONSENT") || msg.includes("DRIVE_NO_ACCOUNT")) {
+        setDriveNeedsConsent(true);
+      } else {
+        setError(msg || "Could not load your Google Drive files.");
+      }
+      return;
+    }
+    setDriveFiles(res.data?.files ?? []);
+  };
+
+  const handleDriveImport = (file: DriveFileItem) => {
+    const sizeMb = file.sizeBytes / (1024 * 1024);
+    if (sizeMb > 150) {
+      setError(
+        `This file is ${sizeMb.toFixed(1)}MB. In-app import works best under 150MB; very large decks may fail here.`,
+      );
+      return;
+    }
+    setError("");
+    setLoading(true);
+    setProgressMsg(`Downloading "${file.name}" from Google Drive...`);
+    driveImportMutation.mutate({ fileId: file.id, fileName: file.name });
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError("");
@@ -110,6 +174,8 @@ export const ImportFromAnkiModal: React.FC<ImportFromAnkiModalProps> = ({
     setError("");
     setLoading(false);
     setProgressMsg("");
+    setDriveFiles(null);
+    setDriveNeedsConsent(false);
   };
 
   return (
@@ -176,6 +242,95 @@ export const ImportFromAnkiModal: React.FC<ImportFromAnkiModalProps> = ({
                 )}
               </Stack>
             </Box>
+
+            {!selectedFile && (
+              <>
+                <HStack>
+                  <Divider />
+                  <Text fontSize="xs" color={secondaryText} whiteSpace="nowrap">
+                    or
+                  </Text>
+                  <Divider />
+                </HStack>
+
+                {driveFiles === null && !driveNeedsConsent && (
+                  <Button
+                    variant="outline"
+                    leftIcon={<Icon as={IconBrandGoogleDrive} />}
+                    onClick={handleLoadDriveFiles}
+                    isLoading={driveLoading}
+                    loadingText="Loading your Drive files..."
+                    disabled={loading}
+                  >
+                    Import from Google Drive
+                  </Button>
+                )}
+
+                {driveNeedsConsent && (
+                  <Stack spacing={2}>
+                    <Text fontSize="sm" color={secondaryText}>
+                      To import from Google Drive, reconnect your Google account
+                      and grant read-only Drive access.
+                    </Text>
+                    <Button
+                      colorScheme="orange"
+                      variant="outline"
+                      leftIcon={<Icon as={IconBrandGoogleDrive} />}
+                      onClick={() =>
+                        void signIn("google", {
+                          callbackUrl: window.location.pathname,
+                        })
+                      }
+                    >
+                      Reconnect Google
+                    </Button>
+                  </Stack>
+                )}
+
+                {driveFiles !== null && (
+                  <Stack spacing={1}>
+                    {driveFiles.length === 0 ? (
+                      <Text fontSize="sm" color={secondaryText}>
+                        No .apkg files found in your Google Drive.
+                      </Text>
+                    ) : (
+                      driveFiles.map((f) => (
+                        <Box
+                          key={f.id}
+                          px={3}
+                          py={2}
+                          rounded="lg"
+                          border="1px solid"
+                          borderColor={borderColor}
+                          cursor={loading ? "not-allowed" : "pointer"}
+                          _hover={{ bg: driveRowHoverBg }}
+                          onClick={() => !loading && handleDriveImport(f)}
+                        >
+                          <HStack justify="space-between">
+                            <Text fontSize="sm" fontWeight={600} noOfLines={1}>
+                              {f.name}
+                            </Text>
+                            <Text
+                              fontSize="xs"
+                              color={secondaryText}
+                              whiteSpace="nowrap"
+                            >
+                              {(f.sizeBytes / (1024 * 1024)).toFixed(1)} MB
+                            </Text>
+                          </HStack>
+                          <Text fontSize="xs" color={secondaryText}>
+                            {new Date(f.modifiedTime).toLocaleDateString()}
+                          </Text>
+                        </Box>
+                      ))
+                    )}
+                    <Text fontSize="xs" color={secondaryText}>
+                      Decks over ~150 MB may be too large for in-app import.
+                    </Text>
+                  </Stack>
+                )}
+              </>
+            )}
 
             {loading && (
               <Stack spacing={2} py={2}>

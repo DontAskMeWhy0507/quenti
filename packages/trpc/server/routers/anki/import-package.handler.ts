@@ -82,7 +82,61 @@ export const importPackageHandler = async ({
     return files;
   };
 
-  if (blobToken) {
+  // Preferred media target: a public GitHub repo served through the
+  // jsDelivr CDN (GITHUB_MEDIA_TOKEN). Files land under a per-import prefix
+  // so decks never collide, and card HTML is rewritten to the CDN URLs.
+  const ghToken = process.env.GITHUB_MEDIA_TOKEN;
+  if (ghToken) {
+    try {
+      const files = await loadMediaFiles();
+      if (files.length) {
+        const owner = process.env.GITHUB_MEDIA_OWNER ?? "DontAskMeWhy0507";
+        const repo = process.env.GITHUB_MEDIA_REPO ?? "quenti-media";
+        const importId = `${Date.now().toString(36)}${Math.random()
+          .toString(36)
+          .slice(2, 8)}`;
+        const prefix = `anki/imports/${importId}`;
+        const uploadOne = async (file: { name: string; content: Buffer }) => {
+          const resp = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/contents/${prefix}/${encodeURIComponent(
+              file.name,
+            )}`,
+            {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${ghToken}`,
+                Accept: "application/vnd.github+json",
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                message: `Anki import media: ${file.name}`,
+                content: file.content.toString("base64"),
+              }),
+            },
+          );
+          if (!resp.ok) {
+            throw new Error(
+              `GitHub media upload failed for ${file.name} (HTTP ${resp.status})`,
+            );
+          }
+        };
+        const queue = [...files];
+        await Promise.all(
+          Array.from({ length: 6 }, async () => {
+            for (let f = queue.shift(); f; f = queue.shift()) {
+              await uploadOne(f);
+            }
+          }),
+        );
+        mediaBase = `https://cdn.jsdelivr.net/gh/${owner}/${repo}@main/${prefix}`;
+      }
+    } catch (err) {
+      console.warn("GitHub media upload warning:", err);
+      mediaBase = null;
+    }
+  }
+
+  if (!mediaBase && blobToken) {
     try {
       for (const file of await loadMediaFiles()) {
         const blob = await put(`anki/${file.name}`, file.content, {
