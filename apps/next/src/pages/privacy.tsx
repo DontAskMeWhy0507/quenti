@@ -1,3 +1,1 @@
-import PrivacyPolicy from "./privacy-policy";
-
-export default PrivacyPolicy;
+export { default, getServerSideProps } from "./privacy-policy";
