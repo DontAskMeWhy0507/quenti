@@ -11,6 +11,7 @@ import {
   UnorderedList,
 } from "@chakra-ui/react";
 
+import { PageWrapper } from "../common/page-wrapper";
 import { WithFooter } from "../components/with-footer";
 import { getLayout } from "../layouts/main-layout";
 
@@ -105,6 +106,7 @@ const PrivacyPolicy = () => {
   );
 };
 
+PrivacyPolicy.PageWrapper = PageWrapper;
 PrivacyPolicy.getLayout = getLayout;
 
 export default PrivacyPolicy;
