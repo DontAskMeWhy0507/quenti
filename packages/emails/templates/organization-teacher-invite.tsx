@@ -52,7 +52,7 @@ export const OrganizationTeacherInviteEmail = ({
             <Content>
               {BODY_COPY_BASE}{" "}
               <a
-                href="https://quenti.io/organizations"
+                href={`${new URL(url).origin}/organizations`}
                 className="text-blue-500"
               >
                 Learn more
