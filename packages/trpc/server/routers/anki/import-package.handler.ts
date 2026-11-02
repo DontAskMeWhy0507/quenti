@@ -5,6 +5,8 @@ import JSZip from "jszip";
 import * as fzstd from "fzstd";
 import type { NonNullableUserContext } from "../../lib/types";
 import type { TImportPackageSchema } from "./import-package.schema";
+import { put } from "@vercel/blob";
+
 import { parseAnkiPackage } from "../../../../lib/src/anki/parser";
 
 function safeTruncate(str: string, maxLen = 1000): string {
@@ -58,27 +60,60 @@ export const importPackageHandler = async ({
   let firstSetId = "";
   let totalTerms = 0;
 
-  // Extract media to public uploads directory
-  const uploadsBase = path.resolve(process.cwd(), "apps/next/public/uploads/anki");
-  try {
-    fs.mkdirSync(uploadsBase, { recursive: true });
-    if (Object.keys(parsed.mediaMap).length > 0) {
-      const zip = await JSZip.loadAsync(buffer);
-      for (const [entryId, realName] of Object.entries(parsed.mediaMap)) {
-        const fileEntry = zip.file(entryId);
-        if (fileEntry) {
-          let content = await fileEntry.async("nodebuffer");
-          if (content.length >= 4 && content[0] === 0x28 && content[1] === 0xb5 && content[2] === 0x2f && content[3] === 0xfd) {
-            content = Buffer.from(fzstd.decompress(content));
-          }
-          const safeName = path.basename(realName);
-          fs.writeFileSync(path.join(uploadsBase, safeName), content);
+  // Extract media. On deployments with Vercel Blob configured, media is
+  // uploaded to Blob and card HTML is rewritten to the public Blob URLs.
+  // Otherwise it falls back to the local public/uploads directory (local dev).
+  let mediaBase: string | null = null;
+  const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+  const loadMediaFiles = async () => {
+    const files: { name: string; content: Buffer }[] = [];
+    if (Object.keys(parsed.mediaMap).length === 0) return files;
+    const zip = await JSZip.loadAsync(buffer);
+    for (const [entryId, realName] of Object.entries(parsed.mediaMap)) {
+      const fileEntry = zip.file(entryId);
+      if (fileEntry) {
+        let content = await fileEntry.async("nodebuffer");
+        if (content.length >= 4 && content[0] === 0x28 && content[1] === 0xb5 && content[2] === 0x2f && content[3] === 0xfd) {
+          content = Buffer.from(fzstd.decompress(content));
         }
+        files.push({ name: path.basename(realName), content });
       }
     }
-  } catch (err) {
-    console.warn("Media extraction warning:", err);
+    return files;
+  };
+
+  if (blobToken) {
+    try {
+      for (const file of await loadMediaFiles()) {
+        const blob = await put(`anki/${file.name}`, file.content, {
+          access: "public",
+          addRandomSuffix: false,
+          token: blobToken,
+        });
+        if (!mediaBase) {
+          mediaBase = blob.url.slice(0, blob.url.length - file.name.length - 1);
+        }
+      }
+    } catch (err) {
+      console.warn("Blob media upload warning:", err);
+      mediaBase = null;
+    }
   }
+
+  if (!mediaBase) {
+    const uploadsBase = path.resolve(process.cwd(), "apps/next/public/uploads/anki");
+    try {
+      fs.mkdirSync(uploadsBase, { recursive: true });
+      for (const file of await loadMediaFiles()) {
+        fs.writeFileSync(path.join(uploadsBase, file.name), file.content);
+      }
+    } catch (err) {
+      console.warn("Media extraction warning:", err);
+    }
+  }
+
+  const rewriteMedia = (html: string) =>
+    mediaBase ? html.split("/api/anki/media/").join(`${mediaBase}/`) : html;
 
   for (const deck of parsed.decks) {
     if (!deck.cards.length && parsed.decks.length > 1) continue;
@@ -111,11 +146,15 @@ export const importPackageHandler = async ({
       const chunk = deck.cards.slice(i, i + batchSize);
       await ctx.prisma.term.createMany({
         data: chunk.map((c, idx) => ({
-          word: safeTruncate(c.front, 1000),
-          definition: safeTruncate(c.back, 1000),
+          word: safeTruncate(rewriteMedia(c.front), 1000),
+          definition: safeTruncate(rewriteMedia(c.back), 1000),
           rank: i + idx,
           studySetId: studySet.id,
-          assetUrl: c.imageFiles[0] ? `/uploads/anki/${path.basename(c.imageFiles[0])}` : null,
+          assetUrl: c.imageFiles[0]
+            ? mediaBase
+              ? `${mediaBase}/${path.basename(c.imageFiles[0])}`
+              : `/uploads/anki/${path.basename(c.imageFiles[0])}`
+            : null,
         })),
       });
     }
