@@ -11,6 +11,7 @@ import {
   UnorderedList,
 } from "@chakra-ui/react";
 
+import { PageWrapper } from "../common/page-wrapper";
 import { WithFooter } from "../components/with-footer";
 import { getLayout } from "../layouts/main-layout";
 
@@ -60,6 +61,7 @@ const Features = () => {
   );
 };
 
+Features.PageWrapper = PageWrapper;
 Features.getLayout = getLayout;
 
 export default Features;
