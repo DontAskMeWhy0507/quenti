@@ -1,3 +1,5 @@
+import type { GetServerSideProps } from "next";
+
 import { HeadSeo } from "@quenti/components/head-seo";
 
 import {
@@ -48,3 +50,7 @@ const Pricing = () => {
 Pricing.getLayout = getLayout;
 
 export default Pricing;
+
+export const getServerSideProps: GetServerSideProps = async () => ({
+  props: {},
+});
