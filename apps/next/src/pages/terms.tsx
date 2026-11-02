@@ -11,6 +11,7 @@ import {
   UnorderedList,
 } from "@chakra-ui/react";
 
+import { PageWrapper } from "../common/page-wrapper";
 import { WithFooter } from "../components/with-footer";
 import { getLayout } from "../layouts/main-layout";
 
@@ -95,6 +96,7 @@ const Terms = () => {
   );
 };
 
+Terms.PageWrapper = PageWrapper;
 Terms.getLayout = getLayout;
 
 export default Terms;
