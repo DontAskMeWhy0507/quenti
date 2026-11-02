@@ -1,3 +1,5 @@
+import type { GetServerSideProps } from "next";
+
 import { HeadSeo } from "@quenti/components/head-seo";
 
 import {
@@ -61,3 +63,7 @@ const Features = () => {
 Features.getLayout = getLayout;
 
 export default Features;
+
+export const getServerSideProps: GetServerSideProps = async () => ({
+  props: {},
+});
