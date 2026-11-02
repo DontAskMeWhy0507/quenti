@@ -1,3 +1,5 @@
+import type { GetServerSideProps } from "next";
+
 import { HeadSeo } from "@quenti/components/head-seo";
 
 import {
@@ -106,3 +108,7 @@ const PrivacyPolicy = () => {
 PrivacyPolicy.getLayout = getLayout;
 
 export default PrivacyPolicy;
+
+export const getServerSideProps: GetServerSideProps = async () => ({
+  props: {},
+});
