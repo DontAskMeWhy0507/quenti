@@ -52,6 +52,37 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
   },
+  events: {
+    // NextAuth v4 never updates the stored OAuth account row after the
+    // first link, so tokens/scope saved at first sign-in go stale forever
+    // (this froze the Google account at its pre-Drive scope and made the
+    // Drive import ask for a reconnect on every attempt). Persist the
+    // fresh grant on every Google sign-in.
+    async signIn({ account }) {
+      if (account?.provider !== "google" || !account.providerAccountId)
+        return;
+      const data: {
+        access_token?: string;
+        refresh_token?: string;
+        expires_at?: number;
+        scope?: string;
+        id_token?: string;
+      } = {};
+      if (account.access_token) data.access_token = account.access_token;
+      if (account.refresh_token) data.refresh_token = account.refresh_token;
+      if (account.expires_at) data.expires_at = account.expires_at;
+      if (account.scope) data.scope = account.scope;
+      if (account.id_token) data.id_token = account.id_token;
+      if (Object.keys(data).length === 0) return;
+      await prisma.account.updateMany({
+        where: {
+          provider: "google",
+          providerAccountId: account.providerAccountId,
+        },
+        data,
+      });
+    },
+  },
   pages: {
     signIn: "/auth/login",
     signOut: "/",
