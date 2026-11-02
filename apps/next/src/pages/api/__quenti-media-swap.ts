@@ -60,6 +60,23 @@ export default async function handler(
       }
       return res.status(200).json(results);
     }
+    if (action === "swapSafe") {
+      // Definitions sit in a VARCHAR(1000) and a few rows are at the limit;
+      // the longer CDN base would overflow them, so truncate at 1000 chars
+      // (the same ceiling the original import used). assetUrl has room.
+      const results: Record<string, number> = {};
+      results.definition = await prisma.$executeRawUnsafe(
+        `UPDATE Term SET definition = LEFT(REPLACE(definition, ?, ?), 1000) WHERE definition LIKE '%blob.vercel-storage.com%'`,
+        OLD,
+        NEW,
+      );
+      results.assetUrl = await prisma.$executeRawUnsafe(
+        `UPDATE Term SET assetUrl = REPLACE(assetUrl, ?, ?) WHERE assetUrl LIKE '%blob.vercel-storage.com%'`,
+        OLD,
+        NEW,
+      );
+      return res.status(200).json(results);
+    }
     return res.status(400).json({ error: "unknown action" });
   } catch (e) {
     return res
