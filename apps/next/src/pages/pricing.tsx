@@ -11,6 +11,7 @@ import {
   UnorderedList,
 } from "@chakra-ui/react";
 
+import { PageWrapper } from "../common/page-wrapper";
 import { WithFooter } from "../components/with-footer";
 import { getLayout } from "../layouts/main-layout";
 
@@ -47,6 +48,7 @@ const Pricing = () => {
   );
 };
 
+Pricing.PageWrapper = PageWrapper;
 Pricing.getLayout = getLayout;
 
 export default Pricing;
