@@ -120,15 +120,33 @@ export const importPackageHandler = async ({
             );
           }
         };
-        const queue = [...files];
-        await Promise.all(
-          Array.from({ length: 6 }, async () => {
-            for (let f = queue.shift(); f; f = queue.shift()) {
+        // Uploads MUST be sequential: every Contents-API PUT creates a
+        // commit on the same branch, so parallel PUTs race on the branch
+        // ref and all but one fail (verified 2026-11-03: only 1 of 2 test
+        // files landed). Retry each file a few times, keep going on a
+        // final failure, and still use the GitHub base if anything
+        // uploaded — partial media beats rewriting every card to a
+        // fallback store that may not serve the files.
+        let uploaded = 0;
+        for (const f of files) {
+          let lastErr: unknown = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
               await uploadOne(f);
+              lastErr = null;
+              break;
+            } catch (e) {
+              lastErr = e;
+              await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
             }
-          }),
-        );
-        mediaBase = `https://cdn.jsdelivr.net/gh/${owner}/${repo}@main/${prefix}`;
+          }
+          if (lastErr)
+            console.warn(`GitHub media upload failed for ${f.name}:`, lastErr);
+          else uploaded++;
+        }
+        if (uploaded > 0) {
+          mediaBase = `https://cdn.jsdelivr.net/gh/${owner}/${repo}@main/${prefix}`;
+        }
       }
     } catch (err) {
       console.warn("GitHub media upload warning:", err);
@@ -136,7 +154,10 @@ export const importPackageHandler = async ({
     }
   }
 
-  if (!mediaBase && blobToken) {
+  // Blob is only a fallback when GitHub media is not configured: the
+  // project's Blob store is paused (free-tier request quota), so uploads
+  // there produce links that cannot be read back.
+  if (!mediaBase && blobToken && !ghToken) {
     try {
       for (const file of await loadMediaFiles()) {
         const blob = await put(`anki/${file.name}`, file.content, {
