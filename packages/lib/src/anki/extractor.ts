@@ -1,7 +1,6 @@
 import JSZip from "jszip";
 import * as fzstd from "fzstd";
 import initSqlJs, { type Database } from "sql.js";
-import { SQL_WASM_BASE64 } from "./sql-wasm-base64";
 
 /**
  * TypeScript port of extractor.py. Produces the exact same collection
@@ -160,12 +159,41 @@ function decodeTemplateConfig(bytes: Uint8Array): {
   return { qfmt, afmt };
 }
 
+const SQL_JS_VERSION = "1.15.2";
+const WASM_CDN_URL = `https://cdn.jsdelivr.net/npm/sql.js@${SQL_JS_VERSION}/dist/sql-wasm.wasm`;
+
+async function loadWasmBinary(): Promise<Uint8Array> {
+  // Prefer the wasm file shipped inside the installed sql.js package.
+  // (Embedding it as a base64 source file crashed the Vercel build
+  // compiler with SIGSEGV, so it must not live in the bundle.)
+  try {
+    const fs = await import("fs");
+    const path = await import("path");
+    const rel = path.join("sql.js", "dist", "sql-wasm.wasm");
+    const candidates = [
+      process.env.SQL_WASM_PATH,
+      path.join(process.cwd(), "node_modules", rel),
+      path.join(process.cwd(), "..", "..", "node_modules", rel),
+      path.join("/var/task", "node_modules", rel),
+    ].filter((c): c is string => !!c);
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) return fs.readFileSync(candidate);
+    }
+  } catch {
+    // Fall through to the CDN copy.
+  }
+  const res = await fetch(WASM_CDN_URL);
+  if (!res.ok)
+    throw new Error(`Could not load sql.js wasm (HTTP ${res.status})`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
 let sqlPromise: ReturnType<typeof initSqlJs> | null = null;
 function getSql() {
   if (!sqlPromise) {
-    sqlPromise = initSqlJs({
-      wasmBinary: Buffer.from(SQL_WASM_BASE64, "base64"),
-    });
+    sqlPromise = loadWasmBinary().then((wasmBinary) =>
+      initSqlJs({ wasmBinary }),
+    );
   }
   return sqlPromise;
 }

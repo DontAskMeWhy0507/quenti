@@ -53,6 +53,11 @@ let config = {
       "@tremor/react",
     ],
     instrumentationHook: true,
+    // sql.js (used by the Anki extractor) is an Emscripten bundle that
+    // crashes the build compiler when webpack tries to bundle it
+    // (SIGSEGV, 2026-11-03). Keep it external: the server loads it from
+    // node_modules at runtime instead.
+    serverComponentsExternalPackages: ["sql.js"],
     // Tommy, I love you so much https://holocron.so/blog/optimizing-next.js-cold-starts-for-vercel
     esmExternals: false,
   },
